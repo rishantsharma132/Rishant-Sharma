@@ -1,0 +1,90 @@
+<?php
+// This file is part of Creolms - http://creolms.org/
+//
+// Creolms is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Creolms is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Creolms.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * External files API
+ *
+ * @package    core_files
+ * @category   external
+ */
+
+defined('MOODLE_INTERNAL') || die;
+require_once($CFG->libdir . '/externallib.php');
+
+class local_quizapis_external extends external_api {
+    public static function get_quiz_questions_parameters() {
+        return new external_function_parameters (
+            array(
+                'moduleid' => new external_value(PARAM_INT, 'Course module id')
+            )
+        );
+    }
+    public static function get_quiz_questions_returns() {
+        return new external_value(PARAM_RAW, 'All quiz questions');
+    }
+    public static function get_quiz_questions($moduleid) {         
+        global $CFG, $DB, $USER;       
+        $ques_field = array();
+        $getquiz = $DB->get_record('course_modules', array('id' => $moduleid));
+        $quizname = $DB->get_record('quiz', array('id' => $getquiz->instance));
+
+        $questions = $DB->get_records_sql("SELECT slot, questionid FROM {quiz_slots} WHERE quizid = '$getquiz->instance'");
+        $information['Quiz name'] = $quizname->name;
+        foreach ($questions as $question) {
+            $ques_field[] = array(           
+                'questionid' => $question->questionid,
+                'questionposition' => $question->slot,
+            );
+        }
+        $information['Questions'] = $ques_field;
+        return json_encode($information);
+    }
+
+   public static function get_questions_details_parameters() {
+        return new external_function_parameters (
+            array(
+                'questionid' => new external_value(PARAM_INT, 'question id')
+            )
+        );
+    }
+    public static function get_questions_details_returns() {
+        return new external_value(PARAM_RAW, 'All question detail');
+    }
+    public static function get_questions_details($questionid) {         
+        global $CFG, $DB, $USER;   
+        $information = array();    
+        $op = array();
+        $question = $DB->get_records_sql("SELECT qa.id, q.name, q.questiontext,qa.answer,qa.fraction, qa.feedback FROM {question} q INNER JOIN {question_answers} qa ON q.id = qa.question WHERE q.id = $questionid ");  
+        foreach ($question as $keylue) {
+            $questionname = $keylue->name;
+            $questionquestiontext = $keylue->questiontext;
+            $questionanswer = $keylue->answer;
+            $questionfraction = $keylue->fraction;
+            $questionfeedback = $keylue->feedback;       
+            $op[]= array(
+                'qanswer'=>$questionanswer,  
+                'qfraction'=>$questionfraction,
+                'qfeedback'=>$questionfeedback    
+            );       
+        }
+        $information[]= array(
+            'questionname'=>$questionname,  
+            'questiontexte'=>$questionquestiontext,
+             'options' =>$op
+        );    
+       return json_encode($information);
+   }   
+}
